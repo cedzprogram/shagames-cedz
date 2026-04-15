@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shahoney the Snake</title>
+<link rel="icon" type="image/png" href="C:\Users\admin\Downloads\sha.png">
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    color: #0f0;
+    font-family: monospace;
+    overflow: hidden;
+  }
+
+  /* FLOATING DOTS */
+  .dot {
+    position: absolute;
+    border-radius: 50%;
+    background: #0f0;
+    opacity: 0;
+    filter: blur(0.5px);
+    box-shadow: 0 0 12px #0f0, 0 0 24px #0f0;
+    animation: floatDot linear infinite, fadeDot ease-in-out infinite;
+  }
+
+  @keyframes floatDot {
+    from { transform: translateY(0); }
+    to { transform: translateY(var(--moveY)); }
+  }
+
+  @keyframes fadeDot {
+    0%,100% { opacity:0; }
+    50% { opacity:0.9; }
+  }
+
+  /* EXIT BUTTON */
+  .exit {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    color: #0f0;
+    border: 1px solid #0f0;
+    padding: 6px 12px;
+    text-decoration: none;
+    box-shadow: 0 0 12px #0f0;
+    z-index: 10;
+  }
+  .exit:hover { background:#0f0; color:#000; }
+
+  .container {
+    height: 100vh;
+    display:flex;
+    flex-direction: column;
+    align-items:center;
+    justify-content:center;
+    position: relative;
+    z-index:2;
+  }
+
+  h1 { margin-bottom:8px; letter-spacing:2px; }
+
+  .hud {
+    width:50vw;
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:6px;
+  }
+
+  canvas {
+    background:#000;
+    border:3px solid #0f0;
+    box-shadow:0 0 30px #0f0;
+  }
+
+  .flash {
+    animation: flash 0.2s;
+  }
+
+  @keyframes flash {
+    0% { box-shadow:0 0 20px #0f0; }
+    50% { box-shadow:0 0 60px #7CFF00; }
+    100% { box-shadow:0 0 30px #0f0; }
+  }
+
+  .overlay {
+    position:absolute;
+    background:rgba(0,0,0,0.92);
+    border:2px solid #0f0;
+    box-shadow:0 0 25px #0f0;
+    padding:20px 30px;
+    text-align:center;
+    display:none;
+    z-index:5;
+  }
+
+  button {
+    background:#000;
+    color:#0f0;
+    border:1px solid #0f0;
+    padding:8px 18px;
+    cursor:pointer;
+    margin-top:10px;
+    font-family:monospace;
+  }
+</style>
+</head>
+<body>
+
+<a class="exit" href="file:///C:/Users/admin/OneDrive/Documents/Intro.html">EXIT</a>
+
+<div class="container">
+
+  
+
+  <!-- START SCREEN -->
+  <div class="overlay" id="startScreen">
+    <h2>Shahoney the Snake</h2>
+    <p>Classic Snake Game</p>
+    <p style="opacity:.7;">Press ENTER or click Start</p>
+    <button onclick="startGame()">Start</button>
+  </div>
+
+  <h1>Shahoney the Snake</h1>
+
+  <div class="hud">
+    <div>Score: <span id="score">0</span></div>
+    <div>Time: <span id="time">0</span>s</div>
+  </div>
+
+  <canvas id="game"></canvas>
+
+  <!-- GAME OVER SCREEN -->
+  <div class="overlay" id="gameOver">
+    <h2>Pildi😂😂</h2>
+    <p>Score: <span id="finalScore"></span></p>
+    <p style="opacity:.7;">Press ENTER to try again</p>
+    <button id="retryBtn" onclick="start()">Try Again</button>
+  </div>
+
+  <!-- LOADING SCREEN -->
+  <div class="overlay" id="loadingScreen" style="display:block;">
+    <h2>Loading Shahoney the Snake...</h2>
+    <div style="width:300px; height:20px; border:2px solid #0f0; margin:20px auto; position:relative;">
+      <div id="loadingBar" style="background:#0f0; height:100%; width:0%; transition: width 0.1s;"></div>
+    </div>
+    <p style="opacity:0.7;">Please wait...</p>
+  </div>
+</div>
+
+
+<script>
+// ================= FLOATING DOTS ===================
+function createDot() {
+  const dot = document.createElement("div");
+  dot.className="dot";
+  const size = 6 + Math.random()*8;
+  dot.style.width=size+"px";
+  dot.style.height=size+"px";
+  dot.style.left=Math.random()*window.innerWidth+"px";
+
+  const moveY = (Math.random()>0.5?1:-1)*(50+Math.random()*100) + "px";
+  dot.style.setProperty('--moveY', moveY);
+
+  dot.style.top=(Math.random()*window.innerHeight)+"px";
+  const duration = 6+Math.random()*6;
+  dot.style.animationDuration = `${duration}s, ${duration*0.6}s`;
+  document.body.appendChild(dot);
+  setTimeout(()=>dot.remove(), duration*1000);
+}
+setInterval(createDot,400);
+
+// ================= LOADING BAR ===================
+window.addEventListener("load", () => {
+  const loadingBar = document.getElementById("loadingBar");
+  let progress = 0;
+
+  const interval = setInterval(() => {
+    progress += Math.random() * 10; // random increment for effect
+    if(progress >= 100) progress = 100;
+    loadingBar.style.width = progress + "%";
+
+    if(progress >= 100){
+      clearInterval(interval);
+      setTimeout(() => {
+        document.getElementById("loadingScreen").style.display = "none";
+        document.getElementById("startScreen").style.display = "block";
+      }, 500);
+    }
+  }, 200);
+});
+
+// ================= SNAKE GAME ======================
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const overlay=document.getElementById("gameOver");
+canvas.width=window.innerWidth/2;
+canvas.height=window.innerHeight/2;
+
+const box=20;
+const cols=Math.floor(canvas.width/box);
+const rows=Math.floor(canvas.height/box);
+
+let snake, food, dir, score, loop;
+let startTime, timer;
+let eatAnim=0;
+let gameOver=false;
+let started=false;
+
+// ================= START GAME ======================
+function startGame(){
+  if(started) return;
+  started=true;
+  document.getElementById("startScreen").style.display="none";
+  start();
+}
+
+function start(){
+  snake=[{x:5,y:5}];
+  dir="right";
+  score=0;
+  eatAnim=0;
+  gameOver=false;
+  food=randFood();
+  document.getElementById("score").textContent=score;
+  overlay.style.display="none";
+
+  startTime=Date.now();
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    document.getElementById("time").textContent=
+      Math.floor((Date.now()-startTime)/1000);
+  },1000);
+
+  clearInterval(loop);
+  loop=setInterval(draw,120);
+}
+
+function randFood(){ return {x:Math.floor(Math.random()*cols), y:Math.floor(Math.random()*rows)}; }
+
+document.addEventListener("keydown", e=>{
+  // START GAME
+  if(!started && e.key==="Enter"){ startGame(); return; }
+
+  // RESTART AFTER GAME OVER
+  if(gameOver && e.key==="Enter"){ start(); return; }
+
+  // NORMAL CONTROLS
+  if(!gameOver){
+    if(e.key==="ArrowLeft" && dir!=="right") dir="left";
+    if(e.key==="ArrowRight" && dir!=="left") dir="right";
+    if(e.key==="ArrowUp" && dir!=="down") dir="up";
+    if(e.key==="ArrowDown" && dir!=="up") dir="down";
+  }
+});
+
+// MOBILE SWIPE
+let sx,sy;
+canvas.addEventListener("touchstart", e=>{ sx=e.touches[0].clientX; sy=e.touches[0].clientY; });
+canvas.addEventListener("touchend", e=>{
+  let dx=e.changedTouches[0].clientX-sx;
+  let dy=e.changedTouches[0].clientY-sy;
+  if(Math.abs(dx)>Math.abs(dy)){
+    if(dx>0 && dir!=="left") dir="right";
+    if(dx<0 && dir!=="right") dir="left";
+  } else {
+    if(dy>0 && dir!=="up") dir="down";
+    if(dy<0 && dir!=="down") dir="up";
+  }
+});
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const pulse=eatAnim>0?6:0;
+  ctx.fillStyle="#0f0";
+  ctx.fillRect(food.x*box-pulse/2, food.y*box-pulse/2, box+pulse, box+pulse);
+
+  snake.forEach((p,i)=>{
+    ctx.fillStyle=i===0?"#7CFF00":"#0f0";
+    ctx.fillRect(p.x*box,p.y*box,box,box);
+  });
+
+  let head={...snake[0]};
+  if(dir==="left") head.x--;
+  if(dir==="right") head.x++;
+  if(dir==="up") head.y--;
+  if(dir==="down") head.y++;
+
+  if(head.x<0||head.y<0||head.x>=cols||head.y>=rows||snake.some(s=>s.x===head.x&&s.y===head.y)){
+    clearInterval(loop);
+    clearInterval(timer);
+    gameOver=true;
+    document.getElementById("finalScore").textContent=score;
+    overlay.style.display="block";
+    return;
+  }
+
+  snake.unshift(head);
+  if(head.x===food.x && head.y===food.y){
+    score++;
+    document.getElementById("score").textContent=score;
+    food=randFood();
+    eatAnim=6;
+    canvas.classList.add("flash");
+    setTimeout(()=>canvas.classList.remove("flash"),200);
+  } else snake.pop();
+  if(eatAnim>0) eatAnim--;
+}
+</script>
+
+</body>
+</html>

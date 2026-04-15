@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shahoney Type's</title>
+<link rel="icon" type="image/png" href="C:\Users\admin\Downloads\sha.png">
+<style>
+body {
+  margin:0;
+  background:black;
+  overflow:hidden;
+  font-family: monospace;
+  color:#0f0;
+}
+
+canvas {
+  display:block;
+  background:#111;
+  border:3px solid #0f0;
+  box-shadow:0 0 30px #0f0;
+  margin-top:160px; /* spacing below title and stats */
+}
+
+h1{
+  position:absolute;
+  top:20px;
+  width:100%;
+  text-align:center;
+  font-size:60px;
+  color:#0f0;
+  text-shadow:0 0 20px #0f0,0 0 40px #0f0;
+  z-index:10;
+}
+
+.exit{
+    position:fixed;
+    top:15px;
+    right:15px;
+    border:1px solid #0f0;
+    padding:6px 12px;
+    color:#0f0;
+    text-decoration:none;
+    box-shadow:0 0 12px #0f0;
+    z-index:10;
+  }
+  .exit:hover{
+    background:#0f0;
+    color:#000;
+  }
+
+#stats {
+  position:absolute;
+  top:100px;
+  width:100%;
+  text-align:center;
+  font-size:24px;
+  color:#0f0;
+  letter-spacing:2px;
+  z-index:10;
+}
+
+/* Floating dots outside canvas */
+.dot {
+  position:absolute;
+  border-radius:50%;
+  background:#0f0;
+  opacity:0;
+  filter:blur(0.8px);
+  box-shadow:0 0 8px #0f0,0 0 16px #0f0;
+  animation:floatDot linear infinite, fadeDot ease-in-out infinite;
+  z-index:0;
+}
+
+@keyframes floatDot{
+  from { transform: translateY(0); }
+  to { transform: translateY(var(--moveY)); }
+}
+
+@keyframes fadeDot{
+  0%,100% { opacity:0; }
+  50% { opacity:0.6; }
+}
+
+.overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.95);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+  z-index:50;
+}
+
+.bar{
+  width:300px;
+  height:18px;
+  border:2px solid #0f0;
+  margin-top:15px;
+  border-radius:6px;
+}
+
+.fill{
+  height:100%;
+  width:0%;
+  background:#0f0;
+  transition:width .2s;
+  border-radius:4px;
+}
+
+button{
+  background:black;
+  color:#0f0;
+  border:1px solid #0f0;
+  padding:8px 20px;
+  margin-top:15px;
+  cursor:pointer;
+  border-radius:6px;
+}
+
+input[type=number]{
+  width:80px;
+  font-size:20px;
+  text-align:center;
+  margin-top:10px;
+  background:black;
+  color:#0f0;
+  border:2px solid #0f0;
+  border-radius:6px;
+}
+</style>
+</head>
+<body>
+
+  <a class="exit" href="file:///C:/Users/admin/OneDrive/Documents/Intro.html">EXIT</a>
+
+<h1>Typing Shahoney Attack</h1>
+<div id="stats">Score: 0 | Missed: 0 | Accuracy: 100% | WPM: 0 | Speed: 1</div>
+<canvas id="game"></canvas>
+
+<!-- Loading -->
+<div class="overlay" id="loading">
+  <h2>Loading Game...</h2>
+  <div class="bar"><div class="fill" id="loadFill"></div></div>
+</div>
+
+<!-- Start Confirmation -->
+<div class="overlay" id="start" style="display:none;">
+  <h2>Press ENTER to Start</h2>
+</div>
+
+<!-- Duration Selection -->
+<div class="overlay" id="duration" style="display:none;">
+  <h2>Set Game Duration</h2>
+  <p>Time (seconds):</p>
+  <input type="number" id="gameTime" value="60" min="10" max="600">
+  <button onclick="beginGame()">Start Game</button>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight - 160;
+
+let words = ["neon","t-rex","shahoney","coding","javascript","html","css","game","interactive","typing","challenge","speed","score","keyboard","practice","fun","test","fast","react","computer","browser"];
+let objects = [];
+let input = "";
+let score = 0;
+let missed = 0;
+let gameOver = false;
+let started = false;
+let explosions = [];
+let startTime = 0;
+let gameDuration = 60; // default in seconds
+
+// ---------------- Floating dots ----------------
+function createDot() {
+  const dot = document.createElement("div");
+  dot.className="dot";
+  const size = 2 + Math.random()*4;
+  dot.style.width=dot.style.height=size+"px";
+  dot.style.left=Math.random()*window.innerWidth+"px";
+  dot.style.top=Math.random()*window.innerHeight+"px";
+  const moveY=(Math.random()>0.5?1:-1)*(20+Math.random()*30)+"px"; // slower float
+  dot.style.setProperty('--moveY',moveY);
+  const duration=8+Math.random()*8; // slower
+  dot.style.animationDuration=`${duration}s,${duration*0.8}s`;
+  document.body.appendChild(dot);
+  setTimeout(()=>dot.remove(),duration*1000);
+}
+setInterval(createDot,500);
+
+// ---------------- Falling objects ----------------
+function randomShape(){
+  const shapes = ["circle","square","triangle"];
+  return shapes[Math.floor(Math.random()*shapes.length)];
+}
+
+function spawnObject(){
+  const word = words[Math.floor(Math.random()*words.length)];
+  const fontSize = 18 + Math.min(word.length*2, 30); 
+  const padding = 20;
+  const textWidth = ctx.measureText(word).width || (word.length*fontSize*0.6);
+  const size = Math.max(textWidth+padding, fontSize*2);
+  const speed = 0.5 + Math.random()*0.5; // slower
+  objects.push({
+    x: Math.random()*(canvas.width-size-50)+size/2+25,
+    y: -50,
+    word: word,
+    size: size,
+    speed: speed,
+    shape: randomShape(),
+    color: "#"+(Math.random()*0xFFFFFF<<0).toString(16).padStart(6,"0"),
+    fontSize: fontSize
+  });
+}
+
+let spawnInterval;
+function startSpawning(){
+  spawnInterval = setInterval(()=>{ if(started && !gameOver) spawnObject(); },2500); // slower spawn
+}
+
+// ---------------- Draw ----------------
+function drawObject(obj){
+  ctx.fillStyle=obj.color;
+  ctx.strokeStyle="#0f0";
+  ctx.lineWidth=2;
+  ctx.font=`${obj.fontSize}px monospace`;
+  ctx.textAlign="center";
+  ctx.textBaseline="middle";
+
+  // Draw shape
+  switch(obj.shape){
+    case "circle":
+      ctx.beginPath();
+      ctx.arc(obj.x,obj.y,obj.size/2,0,Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+      break;
+    case "square":
+      ctx.fillRect(obj.x-obj.size/2,obj.y-obj.size/2,obj.size,obj.size);
+      ctx.strokeRect(obj.x-obj.size/2,obj.y-obj.size/2,obj.size,obj.size);
+      break;
+    case "triangle":
+      ctx.beginPath();
+      ctx.moveTo(obj.x,obj.y-obj.size/2);
+      ctx.lineTo(obj.x-obj.size/2,obj.y+obj.size/2);
+      ctx.lineTo(obj.x+obj.size/2,obj.y+obj.size/2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      break;
+  }
+
+  // Draw text with highlight
+  const typedLen = input.length > obj.word.length ? obj.word.length : input.length;
+  const typed = obj.word.slice(0,typedLen);
+  const remaining = obj.word.slice(typedLen);
+
+  ctx.fillStyle="#000"; 
+  ctx.fillText(remaining,obj.x,obj.y);
+  if(typedLen>0){
+    ctx.fillStyle="#ffff00"; 
+    ctx.fillText(typed,obj.x - ctx.measureText(remaining).width/2,obj.y);
+  }
+}
+
+// ---------------- Explosion ----------------
+function spawnExplosion(x,y,color){
+  explosions.push({x,y,radius:0,color,alpha:1});
+}
+
+function drawExplosions(){
+  explosions.forEach((exp,i)=>{
+    ctx.beginPath();
+    ctx.arc(exp.x,exp.y,exp.radius,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${parseInt(exp.color.slice(1,3),16)},${parseInt(exp.color.slice(3,5),16)},${parseInt(exp.color.slice(5,7),16)},${exp.alpha})`;
+    ctx.fill();
+    exp.radius +=3;
+    exp.alpha -=0.04;
+    if(exp.alpha<=0) explosions.splice(i,1);
+  });
+}
+
+// ---------------- Update ----------------
+function update(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  objects.forEach((obj,i)=>{
+    obj.y += obj.speed;
+    drawObject(obj);
+
+    if(obj.y > canvas.height){
+      objects.splice(i,1);
+      missed++;
+      if(missed>=5 || ((Date.now()-startTime)/1000) >= gameDuration) gameOver=true;
+    }
+  });
+
+  drawExplosions();
+
+  const totalTyped = score + missed;
+  const accuracy = totalTyped===0 ? 100 : Math.floor((score/totalTyped)*100);
+  const minutes = (Date.now()-startTime)/60000;
+  const wpm = minutes>0 ? Math.floor(score/minutes) : 0;
+  const avgSpeed = objects.length>0 ? Math.floor(objects.reduce((a,o)=>a+o.speed,0)/objects.length*2) : 1;
+
+  document.getElementById("stats").textContent = `Score: ${score} | Missed: ${missed} | Accuracy: ${accuracy}% | WPM: ${wpm} | Speed: ${avgSpeed}`;
+
+  if(!gameOver) requestAnimationFrame(update);
+  else {
+    ctx.fillStyle="#ff0000";
+    ctx.font="60px monospace";
+    ctx.textAlign="center";
+    ctx.fillText("GAME OVER",canvas.width/2,canvas.height/2-30);
+    ctx.font="30px monospace";
+    ctx.fillText(`Score: ${score} | WPM: ${wpm} | Accuracy: ${accuracy}%`,canvas.width/2,canvas.height/2+20);
+    ctx.fillText(`Press ENTER to Restart`,canvas.width/2,canvas.height/2+60);
+  }
+}
+
+// ---------------- Input ----------------
+document.addEventListener("keydown",e=>{
+  if(!started && e.key==="Enter"){
+    document.getElementById("start").style.display="none";
+    document.getElementById("duration").style.display="flex";
+    return;
+  }
+
+  if(started && !gameOver){
+    if(e.key.length===1) input += e.key;
+    if(e.key==="Backspace") input = input.slice(0,-1);
+
+    objects.forEach((obj,i)=>{
+      if(input.toLowerCase()===obj.word.toLowerCase()){
+        spawnExplosion(obj.x,obj.y,obj.color);
+        score++;
+        objects.splice(i,1);
+        input = "";
+      }
+    });
+  }
+
+  if(gameOver && e.key==="Enter"){
+    // reset
+    objects=[];
+    explosions=[];
+    score=0;
+    missed=0;
+    gameOver=false;
+    input="";
+    startTime = Date.now();
+    update();
+  }
+});
+
+function beginGame(){
+  gameDuration = parseInt(document.getElementById("gameTime").value) || 60;
+  document.getElementById("duration").style.display="none";
+  started = true;
+  startTime = Date.now();
+  startSpawning();
+  update();
+}
+
+// ---------------- Loading ----------------
+let load = 0;
+const fill = document.getElementById("loadFill");
+const loadInt = setInterval(()=>{
+  load += Math.random()*15;
+  if(load>=100){
+    load=100;
+    clearInterval(loadInt);
+    document.getElementById("loading").style.display="none";
+    document.getElementById("start").style.display="flex";
+  }
+  fill.style.width = load+"%";
+},200);
+</script>
+</body>
+</html>

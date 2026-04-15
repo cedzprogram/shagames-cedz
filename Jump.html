@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Jumping Shahoney</title>
+<link rel="icon" type="image/png" href="C:\Users\admin\Downloads\sha.png">
+<style>
+  body{
+    margin:0;
+    background:black;
+    color:#0f0;
+    font-family:monospace;
+    overflow:hidden;
+    position:relative;
+  }
+
+  h1{
+    text-align:center;
+    margin:12px 0;
+    font-size:42px;              
+    letter-spacing:4px;
+    text-shadow:0 0 15px #0f0;
+  }
+
+  .exit{
+    position:fixed;
+    top:15px;
+    right:15px;
+    border:1px solid #0f0;
+    padding:6px 12px;
+    color:#0f0;
+    text-decoration:none;
+    box-shadow:0 0 12px #0f0;
+    z-index:10;
+  }
+  .exit:hover{
+    background:#0f0;
+    color:#000;
+  }
+
+  .container{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    position:relative;
+  }
+
+  canvas{
+    border:3px solid #0f0;
+    box-shadow:0 0 30px #0f0;
+    background:#000;
+    position:relative;
+    z-index:2;
+  }
+
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.9);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    z-index:20;
+  }
+
+  .bar{
+    width:300px;
+    height:18px;
+    border:2px solid #0f0;
+    margin-top:15px;
+  }
+  .fill{
+    height:100%;
+    width:0%;
+    background:#0f0;
+    transition:width .2s;
+  }
+
+  button{
+    background:black;
+    color:#0f0;
+    border:1px solid #0f0;
+    padding:8px 20px;
+    margin-top:15px;
+    cursor:pointer;
+  }
+
+  /* Floating dots outside canvas */
+  .dot{
+    position:absolute;
+    border-radius:50%;
+    background:#0f0;
+    opacity:0;
+    filter:blur(0.8px);
+    box-shadow:0 0 8px #0f0,0 0 16px #0f0;
+    animation:floatDot linear infinite, fadeDot ease-in-out infinite;
+  }
+
+  @keyframes floatDot{
+    from { transform: translateY(0); }
+    to { transform: translateY(var(--moveY)); }
+  }
+
+  @keyframes fadeDot{
+    0%,100% { opacity:0; }
+    50% { opacity:0.9; }
+  }
+</style>
+</head>
+<body>
+
+<a class="exit" href="file:///C:/Users/admin/OneDrive/Documents/Intro.html">EXIT</a>
+
+<h1>JUMPING SHAHONEY</h1>
+
+<div class="container">
+  <canvas id="game" width="800" height="260"></canvas>
+</div>
+
+<!-- LOADING -->
+<div class="overlay" id="loading">
+  <h2>Loading...</h2>
+  <div class="bar"><div class="fill" id="loadFill"></div></div>
+</div>
+
+<!-- START CONFIRM -->
+<div class="overlay" id="start" style="display:none;">
+  <h2>Ready to run?</h2>
+  <button onclick="begin()">Start Game</button>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let dino, obstacles, buildings;
+let speed, score;
+let gravity = 0.6;
+let jumpForce = -12;
+let gameOver = false;
+let running = false;
+
+// ---------------- FLOATING DOTS ----------------
+function createDot() {
+  const dot = document.createElement("div");
+  dot.className = "dot";
+  const size = 2 + Math.random()*4;
+  dot.style.width = dot.style.height = size+"px";
+  dot.style.left = Math.random()*window.innerWidth + "px";
+  dot.style.top = Math.random()*window.innerHeight + "px";
+  const moveY = (Math.random()>0.5?1:-1)*(50+Math.random()*100) + "px";
+  dot.style.setProperty('--moveY', moveY);
+  const duration = 6+Math.random()*6;
+  dot.style.animationDuration = `${duration}s, ${duration*0.6}s`;
+  document.body.appendChild(dot);
+  setTimeout(()=>dot.remove(), duration*1000);
+}
+setInterval(createDot, 300);
+
+// ---------------- CITY BACKGROUND ----------------
+function createBuildings(){
+  buildings = [];
+  let x = 0;
+  while(x < canvas.width*2){
+    let w = 40 + Math.random()*40;
+    let h = 40 + Math.random()*80;
+    buildings.push({ x, w, h });
+    x += w + 20;
+  }
+}
+
+function drawBuildings(){
+  buildings.forEach(b=>{
+    b.x -= speed*0.3; // parallax
+    ctx.fillStyle = "#003300";
+    ctx.fillRect(b.x, 210-b.h, b.w, b.h);
+    ctx.strokeStyle = "#0f0";
+    ctx.strokeRect(b.x, 210-b.h, b.w, b.h);
+  });
+
+  // recycle buildings
+  if(buildings[0].x + buildings[0].w < 0){
+    let last = buildings[buildings.length-1];
+    buildings.shift();
+    buildings.push({
+      x: last.x + last.w + 20,
+      w: 40 + Math.random()*40,
+      h: 40 + Math.random()*80
+    });
+  }
+}
+
+// ---------------- GAME SETUP ----------------
+function reset(){
+  dino = { x:60, y:160, vy:0, frame:0, jumping:false };
+  obstacles = [];
+  speed = 6;
+  score = 0;
+  gameOver = false;
+  running = true;
+  createBuildings();
+}
+
+function spawnCactus(){
+  obstacles.push({ x:canvas.width, y:170 });
+}
+setInterval(()=>{ if(running) spawnCactus(); }, 1400);
+
+// ---------------- DRAW ----------------
+function drawGround(){
+  ctx.strokeStyle="#0f0";
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  for(let i=0;i<canvas.width;i+=20){
+    ctx.moveTo(i,210);
+    ctx.lineTo(i+10,210);
+  }
+  ctx.stroke();
+}
+
+function drawDino(){
+  ctx.fillStyle="#7CFF00";
+  ctx.shadowColor="#7CFF00";
+  ctx.shadowBlur=15;
+
+  ctx.fillRect(dino.x,dino.y,30,25);
+  ctx.fillRect(dino.x+20,dino.y-10,18,15);
+  ctx.fillRect(dino.x-10,dino.y+10,10,8);
+
+  if(!dino.jumping){
+    if(dino.frame%20<10){
+      ctx.fillRect(dino.x+5,dino.y+25,6,12);
+      ctx.fillRect(dino.x+18,dino.y+25,4,8);
+    }else{
+      ctx.fillRect(dino.x+5,dino.y+25,4,8);
+      ctx.fillRect(dino.x+18,dino.y+25,6,12);
+    }
+  }else{
+    ctx.fillRect(dino.x+10,dino.y+25,6,10);
+  }
+  ctx.shadowBlur=0;
+}
+
+function drawCactus(o){
+  ctx.fillStyle="#ff0000"; // RED Cactus
+  ctx.shadowColor="#ff0000";
+  ctx.shadowBlur=10;
+  ctx.fillRect(o.x,o.y,14,30);
+  ctx.fillRect(o.x-6,o.y+8,6,10);
+  ctx.fillRect(o.x+14,o.y+10,6,10);
+  ctx.shadowBlur=0;
+}
+
+// ---------------- UPDATE ----------------
+function update(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  drawBuildings();
+  drawGround();
+
+  if(running){
+    // dino physics
+    dino.vy += gravity;
+    dino.y += dino.vy;
+    if(dino.y>=160){
+      dino.y=160;
+      dino.vy=0;
+      dino.jumping=false;
+    }
+
+    // obstacles
+    obstacles.forEach(o=>{
+      o.x -= speed;
+      drawCactus(o);
+
+      if(
+        dino.x<o.x+14 &&
+        dino.x+30>o.x &&
+        dino.y<o.y+30 &&
+        dino.y+25>o.y
+      ){
+        running=false;
+        gameOver=true;
+      }
+    });
+    obstacles = obstacles.filter(o=>o.x>-50);
+
+    speed += 0.002; // difficulty ramp
+    score++;
+  }
+
+  dino.frame++;
+  drawDino();
+
+  ctx.fillStyle="#0f0";
+  ctx.fillText("Score: "+Math.floor(score/10),680,30);
+
+  if(gameOver){
+    ctx.font="20px monospace";
+    ctx.fillText("GAME OVER",330,120);
+    ctx.fillText("Score: "+Math.floor(score/10),340,150);
+    ctx.fillText("Press ENTER or SPACE",260,180);
+  }
+
+  requestAnimationFrame(update);
+}
+
+// ---------------- CONTROLS ----------------
+document.addEventListener("keydown",e=>{
+  if((e.key===" "||e.key==="ArrowUp") && !dino.jumping && running){
+    dino.vy = jumpForce;
+    dino.jumping = true;
+  }
+  if(gameOver && (e.key===" "||e.key==="Enter")){
+    reset();
+  }
+});
+
+// ---------------- LOADING ----------------
+let load = 0;
+const fill = document.getElementById("loadFill");
+const loadInt = setInterval(()=>{
+  load += Math.random()*15;
+  if(load>=100){
+    load=100;
+    clearInterval(loadInt);
+    document.getElementById("loading").style.display="none";
+    document.getElementById("start").style.display="flex";
+  }
+  fill.style.width = load+"%";
+},200);
+
+function begin(){
+  document.getElementById("start").style.display="none";
+  reset();
+  update();
+}
+</script>
+
+</body>
+</html>

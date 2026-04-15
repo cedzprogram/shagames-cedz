@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shahoney the Tank</title>
+<link rel="icon" type="image/png" href="C:\Users\admin\Downloads\sha.png">
+
+<style>
+body {
+  margin: 0;
+  background: #000;
+  color: #0f0;
+  font-family: monospace;
+  overflow: hidden;
+}
+
+/* FLOATING DOTS */
+.dot {
+  position: absolute;
+  border-radius: 50%;
+  background: #0f0;
+  opacity: 0;
+  filter: blur(0.5px);
+  box-shadow: 0 0 12px #0f0, 0 0 24px #0f0;
+  animation: floatDot linear infinite, fadeDot ease-in-out infinite;
+}
+
+@keyframes floatDot {
+  from { transform: translateY(0); }
+  to { transform: translateY(var(--moveY)); }
+}
+
+@keyframes fadeDot {
+  0%,100% { opacity: 0; }
+  50% { opacity: 0.9; }
+}
+
+/* EXIT BUTTON */
+.exit {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  color: #0f0;
+  border: 1px solid #0f0;
+  padding: 6px 12px;
+  text-decoration: none;
+  box-shadow: 0 0 12px #0f0;
+  z-index: 10;
+}
+.exit:hover { background: #0f0; color: #000; }
+
+/* CONTAINERS */
+.container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+h1 { margin-bottom: 8px; letter-spacing: 2px; }
+
+.hud {
+  width: 50vw;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+canvas {
+  background: #000;
+  border: 3px solid #0f0;
+  box-shadow: 0 0 30px #0f0;
+}
+
+/* OVERLAYS */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.95);
+  border: 2px solid #0f0;
+  box-shadow: 0 0 25px #0f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 10;
+}
+
+.overlay button {
+  background: #000;
+  color: #0f0;
+  border: 1px solid #0f0;
+  padding: 8px 18px;
+  cursor: pointer;
+  margin-top: 10px;
+  font-family: monospace;
+}
+.overlay button:hover { background: #0f0; color: #000; }
+
+/* LOADING BAR */
+#loadingContainer {
+  width: 300px;
+  height: 20px;
+  border: 2px solid #0f0;
+  position: relative;
+  margin: 20px 0;
+}
+#loadingBar {
+  background: #0f0;
+  height: 100%;
+  width: 0%;
+  transition: width 0.1s;
+}
+</style>
+</head>
+<body>
+
+<a class="exit" href="file:///C:/Users/admin/OneDrive/Documents/Intro.html">EXIT</a>
+
+<div class="container">
+
+  <!-- LOADING SCREEN -->
+  <div class="overlay" id="loadingScreen">
+    <h2>Loading Shahoney the Tank...</h2>
+    <div id="loadingContainer">
+      <div id="loadingBar"></div>
+    </div>
+    <p style="opacity:0.7;">Please wait...</p>
+  </div>
+
+  <!-- START SCREEN (hidden initially) -->
+  <div class="overlay" id="startScreen" style="display:none;">
+    <h2>Shahoney Tank Shooter</h2>
+    <p>Use Arrow Keys to Move, Automatic Shooting</p>
+    <p style="opacity:.7;">Press ENTER or click Start</p>
+    <button onclick="startGame()">Start</button>
+  </div>
+
+  <h1>Shahoney Tank Shooter</h1>
+
+  <div class="hud">
+    <div>Score: <span id="score">0</span></div>
+    <div>Time: <span id="time">0</span>s</div>
+  </div>
+
+  <canvas id="game"></canvas>
+
+  <!-- GAME OVER -->
+  <div class="overlay" id="gameOver" style="display:none;">
+    <h2>Game Over</h2>
+    <p>Score: <span id="finalScore"></span></p>
+    <p style="opacity:.7;">Press ENTER to try again</p>
+    <button id="retryBtn" onclick="start()">Try Again</button>
+  </div>
+</div>
+
+<script>
+// ================= FLOATING DOTS ===================
+function createDot() {
+  const dot=document.createElement("div");
+  dot.className="dot";
+  const size=20+Math.random()*8;
+  dot.style.width=size+"px";
+  dot.style.height=size+"px";
+  dot.style.left=Math.random()*window.innerWidth+"px";
+  const moveY=(Math.random()>0.5?1:-1)*(50+Math.random()*100)+"px";
+  dot.style.setProperty('--moveY',moveY);
+  dot.style.top=Math.random()*window.innerHeight+"px";
+  const duration=6+Math.random()*6;
+  dot.style.animationDuration=`${duration}s, ${duration*0.6}s`;
+  document.body.appendChild(dot);
+  setTimeout(()=>dot.remove(),duration*1000);
+}
+setInterval(createDot,400);
+
+// ================= LOADING BAR ===================
+window.addEventListener("load", () => {
+  const loadingBar = document.getElementById("loadingBar");
+  let progress = 0;
+
+  const interval = setInterval(() => {
+    progress += Math.random() * 10;
+    if(progress >= 100) progress = 100;
+    loadingBar.style.width = progress + "%";
+
+    if(progress >= 100){
+      clearInterval(interval);
+      setTimeout(() => {
+        document.getElementById("loadingScreen").style.display = "none";
+        document.getElementById("startScreen").style.display = "flex";
+      }, 500);
+    }
+  }, 200);
+});
+
+// ================= GAME ===========================
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+canvas.width=window.innerWidth/2;
+canvas.height=window.innerHeight/2;
+
+const overlay=document.getElementById("gameOver");
+
+let player, enemies=[], bullets=[], enemyBullets=[];
+let score=0, startTime, timer, loop;
+let gameOver=false;
+let started=false;
+
+// ================= START ==========================
+function startGame(){
+  if(started) return;
+  started=true;
+  document.getElementById("startScreen").style.display="none";
+  start();
+}
+
+function start(){
+  player={x:canvas.width/2-15,y:canvas.height-50,width:30,height:30,dir:0};
+  enemies=[]; bullets=[]; enemyBullets=[];
+  score=0; gameOver=false;
+  document.getElementById("score").textContent=score;
+  overlay.style.display="none";
+
+  for(let i=0;i<5;i++){
+    enemies.push({x:50+i*100,y:50,width:30,height:30,dir:180});
+  }
+
+  startTime=Date.now();
+  clearInterval(timer);
+  timer=setInterval(()=>{ document.getElementById("time").textContent=Math.floor((Date.now()-startTime)/1000); },1000);
+
+  clearInterval(loop);
+  loop=setInterval(update,40);
+}
+
+// ================= CONTROLS ========================
+let keys={};
+document.addEventListener("keydown", e=>{
+  keys[e.key]=true;
+  if(!started && e.key==="Enter") startGame();
+  if(gameOver && e.key==="Enter") start();
+});
+document.addEventListener("keyup", e=>{ keys[e.key]=false; });
+
+// ================= PLAYER SHOOT ===================
+let lastPlayerShot = 0;
+const shotInterval = 300;
+
+// ================= GAME LOOP =====================
+function update(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // PLAYER MOVE
+  if(keys.ArrowLeft && player.x>0) player.x-=4;
+  if(keys.ArrowRight && player.x+player.width<canvas.width) player.x+=4;
+  if(keys.ArrowUp && player.y>0) player.y-=4;
+  if(keys.ArrowDown && player.y+player.height<canvas.height) player.y+=4;
+
+  // PLAYER SHOOT
+  if(Date.now()-lastPlayerShot > shotInterval){
+    bullets.push({x:player.x+player.width/2-4,y:player.y-8,width:8,height:16,dy:-8});
+    lastPlayerShot = Date.now();
+  }
+
+  // ENEMY MOVE AND SHOOT
+  enemies.forEach(e=>{
+    if(Math.random()<0.02) e.dir=Math.random()*360;
+    e.x+=Math.cos(e.dir*Math.PI/180)*1.5;
+    e.y+=Math.sin(e.dir*Math.PI/180)*1.5;
+    e.x=Math.max(0, Math.min(canvas.width-e.width, e.x));
+    e.y=Math.max(0, Math.min(canvas.height-e.height, e.y));
+
+    if(Math.random()<0.01){
+      enemyBullets.push({x:e.x+e.width/2-4,y:e.y+e.height, width:8,height:16,dy:4});
+    }
+  });
+
+  // PLAYER BULLETS
+  bullets.forEach((b,i)=>{
+    b.y+=b.dy;
+    ctx.fillStyle="#0f0";
+    ctx.fillRect(b.x,b.y,b.width,b.height);
+
+    enemies.forEach((e,j)=>{
+      if(b.x < e.x+e.width && b.x+b.width>e.x && b.y < e.y+e.height && b.y+b.height>e.y){
+        explosion(e.x+e.width/2,e.y+e.height/2);
+        bullets.splice(i,1);
+        enemies.splice(j,1);
+        score+=3;
+        document.getElementById("score").textContent=score;
+
+        setTimeout(()=>{
+          enemies.push({x:50+Math.random()*(canvas.width-100), y:50+Math.random()*100, width:30, height:30, dir:180});
+        },2000);
+      }
+    });
+  });
+
+  // ENEMY BULLETS
+  enemyBullets.forEach((b,i)=>{
+    b.y+=b.dy;
+    ctx.fillStyle="red";
+    ctx.fillRect(b.x,b.y,b.width,b.height);
+    if(b.x<player.x+player.width && b.x+b.width>player.x && b.y<player.y+player.height && b.y+b.height>player.y){
+      explosion(player.x+player.width/2,player.y+player.height/2);
+      clearInterval(loop);
+      clearInterval(timer);
+      gameOver=true;
+      document.getElementById("finalScore").textContent=score;
+      overlay.style.display="flex";
+    }
+  });
+
+  // DRAW PLAYER
+  ctx.fillStyle="#0f0";
+  ctx.fillRect(player.x,player.y,player.width,player.height);
+  ctx.fillStyle="#0a0";
+  ctx.fillRect(player.x+player.width/2-4,player.y-8,8,8);
+
+  // DRAW ENEMIES
+  enemies.forEach(e=>{
+    ctx.fillStyle="red";
+    ctx.fillRect(e.x,e.y,e.width,e.height);
+    ctx.fillStyle="#800";
+    ctx.fillRect(e.x+e.width/2-4,e.y+e.height,8,8);
+  });
+}
+
+// ================= EXPLOSION =====================
+function explosion(x,y){
+  let particles=[];
+  for(let i=0;i<15;i++){
+    particles.push({
+      x:x, y:y,
+      dx:(Math.random()-0.5)*4,
+      dy:(Math.random()-0.5)*4,
+      life:20
+    });
+  }
+  let interval=setInterval(()=>{
+    ctx.fillStyle="#f00";
+    particles.forEach(p=>{
+      ctx.fillRect(p.x,p.y,4,4);
+      p.x+=p.dx;
+      p.y+=p.dy;
+      p.life--;
+    });
+    particles=particles.filter(p=>p.life>0);
+    if(particles.length===0) clearInterval(interval);
+  },30);
+}
+</script>
+</body>
+</html>

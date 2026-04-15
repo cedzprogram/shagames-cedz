@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shahoney Game Portal</title>
+<link rel="icon" type="image/png" href="C:\Users\admin\Downloads\sha.png">
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    color: #0f0;
+    font-family: monospace;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  h1 {
+    text-align: center;
+    margin-top: 85px;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px #0f0, 0 0 20px #7CFF00;
+  }
+
+  /* FLOATING DOTS */
+  .dot {
+    position: absolute;
+    border-radius: 50%;
+    background: #0f0;
+    opacity: 0;
+    filter: blur(0.5px);
+    box-shadow: 0 0 12px #0f0, 0 0 24px #0f0;
+    animation: floatDot linear infinite, fadeDot ease-in-out infinite;
+  }
+
+  @keyframes floatDot {
+    from { transform: translateY(0); }
+    to { transform: translateY(var(--moveY)); }
+  }
+
+  @keyframes fadeDot {
+    0%,100% { opacity:0; }
+    50% { opacity:0.9; }
+  }
+
+  /* SEARCH BAR */
+  .search-container {
+    display: flex;
+    justify-content: center;
+    margin: 40px 0;
+  }
+
+  .search-container input {
+    width: 300px;
+    padding: 10px;
+    background: #000;
+    color: #0f0;
+    border: 2px solid #0f0;
+    outline: none;
+    font-size: 16px;
+    border-radius: 10px;
+    text-shadow: 0 0 5px #0f0;
+  }
+
+  .search-container input::placeholder {
+    color: #0f0;
+    opacity: 0.5;
+  }
+
+  /* APP CONTAINER */
+  .app-container {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 40px;
+    padding-bottom: 100px;
+    
+  }
+
+  .app {
+    width: 150px;
+    height: 150px;
+    border: 2px solid #0f0;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.7);
+    box-shadow: 0 0 20px #0f0;
+    transition: transform 0.3s, box-shadow 0.3s;
+    cursor: pointer;
+    position: relative;
+    animation: floatApp ease-in-out infinite;
+    text-align: center;
+    padding: 10px;
+  }
+
+  .app:hover {
+    transform: translateY(-10px) scale(1.05);
+    box-shadow: 0 0 40px #7CFF00;
+  }
+
+  .app img {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 10px #0f0);
+  }
+
+  .app span {
+    text-shadow: 0 0 5px #0f0, 0 0 10px #7CFF00;
+    font-size: 14px;
+  }
+
+  @keyframes floatApp {
+    0%,100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+ 
+  .hidden { display: none; }
+
+  
+  footer {
+    text-align:center;
+    margin-top:50px;
+    font-size:14px;
+    opacity:0.6;
+    text-shadow: 0 0 5px #0f0;
+  }
+</style>
+</head>
+<body>
+
+<h1>Home</h1>
+
+<div class="search-container">
+  <input type="text" id="searchInput" placeholder="Search for Shahoney game...">
+</div>
+
+<div class="app-container">
+  <div class="app" data-name="Shahoney the Snake" onclick="openSnakeGame()">
+    <a href="C:\Shagames\Snake.html">
+      <img src="C:\Shagames\snake.png" alt="Snake Game">
+   </a> <span>Shahoney the Snake</span>
+  </div>
+
+  <div class="app" data-name="Shahoney the Tank" onclick="openTankGame()">
+    <a href="C:\Shagames\Tank.html"></a>
+    <img src="C:\Shagames\hoho.png" alt="Tank Game"></a>
+    <span>Shahoney the Tank</span>
+  </div>
+
+   <div class="app" data-name="Jumping Shahoney" onclick="openJumpingShahoney()">
+    <a href="C:\Shagames\Jump.html"></a>
+    <img src="C:\Shagames\trex.png" alt="Tank Game"></a>
+    <span>Jumping Shahoney</span>
+  </div>
+
+  <div class="app" data-name="Type Shohoney" onclick="openTyping()">
+    <a href="C:\Shagames\Type.html">
+    <img src="C:\Shagames\t.png" alt="Tank Game"></a>
+    <span>Shahoney Type's</span>
+  </div>
+
+</div>
+
+<footer>
+  &copy; 2026 Shahoney Game
+</footer>
+
+<script>
+
+  function createDot() {
+    const dot = document.createElement("div");
+    dot.className="dot";
+    const size = 6 + Math.random()*8;
+    dot.style.width=size+"px";
+    dot.style.height=size+"px";
+    dot.style.left=Math.random()*window.innerWidth+"px";
+
+    const moveY = (Math.random()>0.5?1:-1)*(50+Math.random()*100) + "px";
+    dot.style.setProperty('--moveY', moveY);
+
+    dot.style.top=(Math.random()*window.innerHeight)+"px";
+    const duration = 6+Math.random()*6;
+    dot.style.animationDuration = `${duration}s, ${duration*0.6}s`;
+    document.body.appendChild(dot);
+    setTimeout(()=>dot.remove(), duration*1000);
+  }
+  setInterval(createDot,400);
+
+ 
+  const searchInput = document.getElementById("searchInput");
+  const apps = document.querySelectorAll(".app");
+
+  searchInput.addEventListener("input", () => {
+    const query = searchInput.value.toLowerCase();
+    apps.forEach(app => {
+      const name = app.getAttribute("data-name").toLowerCase();
+      if(name.includes(query)) {
+        app.classList.remove("hidden");
+      } else {
+        app.classList.add("hidden");
+      }
+    });
+  });
+
+ 
+  function openSnakeGame() {
+    window.location.href = "file:///C:/Shagames/snake.html"; 
+  }
+
+  function openTankGame() {
+    window.location.href = "file:///C:/Shagames/tank.html"; 
+  }
+
+  function openJumpingShahoney() {
+    window.location.href = "file:///C:/Shagames/Jump.html"
+  }
+
+function openTyping() {
+    window.location.href = "file:///C:/Shagames/type.html"
+  }
+
+</script>
+
+</body>
+</html>
